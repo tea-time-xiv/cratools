@@ -1,0 +1,71 @@
+name: Build Cratools
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+jobs:
+
+  build:
+    runs-on: windows-2022
+
+    env:
+      Solution_Name: Cratools
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Read version from csproj
+      run: |
+        $version = ([xml](Get-Content "Cratools/Cratools.csproj")).Project.PropertyGroup.Version
+        "VERSION=$version" >> $env:GITHUB_ENV
+
+    - name: Check if release tag exists
+      run: |
+        git fetch --tags
+        $tag = "v$env:VERSION"
+        $exists = git tag -l $tag
+        $skip = if ($exists) { "true" } else { "false" }
+        "SKIP_RELEASE=$skip" >> $env:GITHUB_ENV
+
+    - name: Install .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Download Dalamud
+      run: |
+        Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -OutFile latest.zip
+        Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+
+    - name: Build with dotnet
+      run: dotnet build --configuration Release
+
+    - name: Package plugin
+      run: |
+        Push-Location ".\Cratools\bin\x64\Release"
+        Compress-Archive -Path "Cratools.dll", "Cratools.json", "images" -DestinationPath "$env:GITHUB_WORKSPACE\Cratools.zip"
+        Pop-Location
+
+    - name: Store artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Cratools
+        path: Cratools.zip
+        if-no-files-found: error
+        retention-days: 1
+
+    - name: Release
+      if: github.event_name == 'push' && env.SKIP_RELEASE == 'false'
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "Cratools.zip"
+        tag: v${{ env.VERSION }}
+        name: Cratools v${{ env.VERSION }}
+        token: ${{ secrets.GITHUB_TOKEN }}

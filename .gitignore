@@ -1,0 +1,10 @@
+.vs/
+obj/
+bin/
+*.user
+.idea
+.claude/settings.local.json
+
+# Machine-local portable-SDK build helpers (contain absolute user paths)
+BUILDING.md
+dev.ps1

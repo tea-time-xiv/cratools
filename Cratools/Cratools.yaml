@@ -1,0 +1,12 @@
+name: Cratools
+author: tea-time-xiv
+punchline: "Crafting helpers, starting with inventory cleanup highlighting."
+description: "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. More crafting helpers to come."
+repo_url: https://github.com/tea-time-xiv/cratools
+icon_url: https://raw.githubusercontent.com/tea-time-xiv/cratools/master/images/icon.png
+tags:
+    - crafting
+    - inventory
+    - utility
+category_tags:
+    - utility
