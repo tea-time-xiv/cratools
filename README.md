@@ -17,11 +17,15 @@ there is nothing to undo, and nothing to reset if it crashes or is unloaded.
 
 ## Install
 
-Not in a plugin repository yet. To run it, build it (below) and dev-load it:
+Requires XIVLauncher, FINAL FANTASY XIV and Dalamud.
 
-1. `/xlsettings` → **Experimental** → **Dev Plugin Locations**
-2. Add the path to `Cratools\bin\x64\Release\Cratools.dll`
+1. Add the custom repo to Dalamud:
+   `https://raw.githubusercontent.com/tea-time-xiv/pluginmaster/master/pluginmaster.json`
+2. Install Cratools from the Dalamud plugin installer.
 3. `/cratools`
+
+To run a local build instead, dev-load it: `/xlsettings` → **Experimental** → **Dev Plugin
+Locations** → add the path to `Cratools\bin\x64\Release\Cratools.dll`.
 
 ## Usage
 
