@@ -96,7 +96,7 @@ public sealed unsafe class InventoryHighlighter
                 if (!keeper)
                     continue;
 
-                DrawFade((AtkResNode*)dragDrop->OwnerNode, scale, drawList, fadeColor);
+                SlotOverlay.DrawRect((AtkResNode*)dragDrop->OwnerNode, scale, drawList, fadeColor);
             }
         }
     }
@@ -117,15 +117,5 @@ public sealed unsafe class InventoryHighlighter
 
         var slot = container->GetInventorySlot(entry->Slot);
         return slot != null ? slot->ItemId : 0u;
-    }
-
-    private static void DrawFade(AtkResNode* node, float scale, ImDrawListPtr drawList, uint color)
-    {
-        if (node == null)
-            return;
-
-        var pos = new Vector2(node->ScreenX, node->ScreenY);
-        var size = new Vector2(node->Width * scale, node->Height * scale);
-        drawList.AddRectFilled(pos, pos + size, color);
     }
 }
