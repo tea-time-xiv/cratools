@@ -34,7 +34,6 @@ public sealed class Plugin : IDalamudPlugin
     public readonly WindowSystem WindowSystem = new("Cratools");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
-    private ArmoryWindow ArmoryWindow { get; init; }
 
     public Plugin()
     {
@@ -53,10 +52,8 @@ public sealed class Plugin : IDalamudPlugin
 
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this);
-        ArmoryWindow = new ArmoryWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
-        WindowSystem.AddWindow(ArmoryWindow);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
@@ -84,7 +81,6 @@ public sealed class Plugin : IDalamudPlugin
         WindowSystem.RemoveAllWindows();
         ConfigWindow.Dispose();
         MainWindow.Dispose();
-        ArmoryWindow.Dispose();
 
         CommandManager.RemoveHandler(CommandName);
     }
@@ -101,7 +97,7 @@ public sealed class Plugin : IDalamudPlugin
 
         if (argument.Equals("armory", StringComparison.OrdinalIgnoreCase))
         {
-            ArmoryWindow.Toggle();
+            MainWindow.ShowArmory();
             return;
         }
 

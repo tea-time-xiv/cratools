@@ -1,19 +1,16 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Cratools.Armory;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Windowing;
 
 namespace Cratools.Windows;
 
 /// <summary>
-/// The armory cleanup results. Every verdict is listed with the reason behind it, because a junk
-/// call you cannot check is a junk call you cannot trust — this window exists so the rules can be
-/// verified against a real armoury before anything is tinted in-game.
+/// The armory cleanup tab of the main window. Every verdict is listed with the reason behind it,
+/// because a junk call you cannot check is a junk call you cannot trust — this list is how the
+/// rules get verified against a real armoury before anything is tinted in-game.
 /// </summary>
-public class ArmoryWindow : Window, IDisposable
+public sealed class ArmoryTab
 {
     private static readonly Vector4 JunkColor = new(1f, 0.42f, 0.38f, 1f);
     private static readonly Vector4 ProtectedColor = new(0.55f, 0.78f, 1f, 1f);
@@ -24,21 +21,12 @@ public class ArmoryWindow : Window, IDisposable
     private ArmoryReport? report;
     private bool junkOnly = true;
 
-    public ArmoryWindow(Plugin plugin)
-        : base("Cratools Armory##CratoolsArmoryWindow")
+    public ArmoryTab(Plugin plugin)
     {
-        SizeConstraints = new WindowSizeConstraints
-        {
-            MinimumSize = new Vector2(620, 380),
-            MaximumSize = new Vector2(1400, 1200),
-        };
-
         this.plugin = plugin;
     }
 
-    public void Dispose() { }
-
-    public override void Draw()
+    public void Draw()
     {
         if (ImGui.Button("Scan armoury"))
             Scan();
@@ -246,7 +234,4 @@ public class ArmoryWindow : Window, IDisposable
 
         plugin.ArmoryHighlighter.SetJunk(report.JunkItemIds);
     }
-
-    public IReadOnlyList<ArmoryVerdict> LastVerdicts =>
-        report?.Verdicts ?? (IReadOnlyList<ArmoryVerdict>)Array.Empty<ArmoryVerdict>();
 }

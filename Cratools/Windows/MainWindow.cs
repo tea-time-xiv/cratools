@@ -6,29 +6,74 @@ using Dalamud.Interface.Windowing;
 
 namespace Cratools.Windows;
 
+/// <summary>
+/// The plugin's single window. Both cleanup features live here as tabs so everything is reachable
+/// from /cratools and from the plugin installer's main-UI button, rather than through commands.
+/// </summary>
 public class MainWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
+    private readonly ArmoryTab armoryTab;
 
     private string pasteText = string.Empty;
     private int matchedItems;
     private readonly List<string> unmatched = new();
+
+    // Set when something asks for the armory tab specifically; consumed by the next Draw.
+    private bool selectArmory;
 
     public MainWindow(Plugin plugin)
         : base("Cratools##CratoolsMainWindow")
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(360, 320),
-            MaximumSize = new Vector2(700, 900),
+            MinimumSize = new Vector2(620, 400),
+            MaximumSize = new Vector2(1400, 1200),
         };
 
         this.plugin = plugin;
+        armoryTab = new ArmoryTab(plugin);
     }
 
     public void Dispose() { }
 
+    /// <summary>Opens the window on the armory tab.</summary>
+    public void ShowArmory()
+    {
+        IsOpen = true;
+        selectArmory = true;
+    }
+
     public override void Draw()
+    {
+        if (!ImGui.BeginTabBar("##cratools_tabs"))
+            return;
+
+        if (ImGui.BeginTabItem("Inventory cleanup"))
+        {
+            DrawInventoryTab();
+            ImGui.EndTabItem();
+        }
+
+        var armoryFlags = selectArmory ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
+        selectArmory = false;
+
+        if (ImGui.BeginTabItem("Armory cleanup", armoryFlags))
+        {
+            armoryTab.Draw();
+            ImGui.EndTabItem();
+        }
+
+        if (ImGui.BeginTabItem("Settings"))
+        {
+            SettingsPanel.Draw(plugin.Configuration);
+            ImGui.EndTabItem();
+        }
+
+        ImGui.EndTabBar();
+    }
+
+    private void DrawInventoryTab()
     {
         ImGui.TextWrapped("Paste Teamcraft's inventory-cleanup list below, then Apply. " +
                           "Slots you need to keep get dimmed in the 'all bags' window; " +
@@ -50,10 +95,6 @@ public class MainWindow : Window, IDisposable
             matchedItems = 0;
             plugin.Highlighter.Clear();
         }
-
-        ImGui.SameLine();
-        if (ImGui.Button("Settings"))
-            plugin.ToggleConfigUi();
 
         ImGui.Spacing();
         ImGui.Separator();
