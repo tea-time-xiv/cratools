@@ -69,3 +69,44 @@ jobs:
         tag: v${{ env.VERSION }}
         name: Cratools v${{ env.VERSION }}
         token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update pluginmaster
+      if: github.event_name == 'push' && env.SKIP_RELEASE == 'false'
+      shell: pwsh
+      env:
+        PLUGINMASTER_TOKEN: ${{ secrets.PLUGINMASTER_TOKEN }}
+      run: |
+        git clone https://x-access-token:$env:PLUGINMASTER_TOKEN@github.com/tea-time-xiv/pluginmaster.git pluginmaster-repo
+        $version = $env:VERSION
+        $downloadUrl = "https://github.com/tea-time-xiv/cratools/releases/download/v$version/Cratools.zip"
+        $lastUpdate = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        $entry = [ordered]@{
+            Author             = "tea-time-xiv"
+            Name               = "Cratools"
+            Punchline          = "Highlights the items and gear you no longer need."
+            Description        = "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. The armory cleanup scan marks gear no class you play can wear, or that you already own something better than, and tints it in the Armoury Chest. Read-only: it never moves or discards anything."
+            Changelog          = "- $version"
+            IsHide             = $false
+            InternalName       = "Cratools"
+            AssemblyVersion    = $version
+            IsTestingExclusive = $false
+            ApplicableVersion  = "any"
+            DalamudApiLevel    = 15
+            DownloadCount      = 0
+            LastUpdate         = $lastUpdate
+            DownloadLinkInstall = $downloadUrl
+            DownloadLinkUpdate  = $downloadUrl
+        }
+        $existing = Get-Content "pluginmaster-repo/pluginmaster.json" | ConvertFrom-Json
+        $filtered = @($existing | Where-Object { $_.InternalName -ne "Cratools" })
+        $merged = $filtered + @($entry)
+        $json = $merged | ConvertTo-Json -Depth 3
+        Set-Content "pluginmaster-repo/pluginmaster.json" $json -Encoding utf8NoBOM
+        Push-Location pluginmaster-repo
+        git symbolic-ref HEAD refs/heads/master
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add pluginmaster.json
+        git commit -m "Release v$version"
+        git push -u origin master
+        Pop-Location
