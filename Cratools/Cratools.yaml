@@ -1,12 +1,13 @@
 name: Cratools
 author: tea-time-xiv
-punchline: "Crafting helpers, starting with inventory cleanup highlighting."
-description: "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. More crafting helpers to come."
+punchline: "Highlights the items and gear you no longer need."
+description: "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. The armory cleanup scan marks gear no class you play can wear, or that you already own something better than, and tints it in the Armoury Chest. Read-only: it never moves or discards anything."
 repo_url: https://github.com/tea-time-xiv/cratools
-icon_url: https://raw.githubusercontent.com/tea-time-xiv/cratools/master/images/icon.png
+icon_url: https://raw.githubusercontent.com/tea-time-xiv/cratools/master/Cratools/images/icon.png
 tags:
     - crafting
     - inventory
+    - gear
     - utility
 category_tags:
     - utility

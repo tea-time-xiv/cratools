@@ -2,12 +2,13 @@
   "InternalName": "Cratools",
   "Author": "tea-time-xiv",
   "Name": "Cratools",
-  "Punchline": "Crafting helpers, starting with inventory cleanup highlighting.",
-  "Description": "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. More crafting helpers to come.",
+  "Punchline": "Highlights the items and gear you no longer need.",
+  "Description": "Paste Teamcraft's inventory-cleanup list and Cratools fades the inventory slots you need to keep, so the removable items stand out. The armory cleanup scan marks gear no class you play can wear, or that you already own something better than, and tints it in the Armoury Chest. Read-only: it never moves or discards anything.",
   "ApplicableVersion": "any",
   "Tags": [
     "crafting",
     "inventory",
+    "gear",
     "utility"
   ]
 }
