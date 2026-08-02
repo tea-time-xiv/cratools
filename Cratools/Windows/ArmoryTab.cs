@@ -65,8 +65,8 @@ public sealed class ArmoryTab
         }
 
         ImGui.TextUnformatted($"{report.JunkCount} junk of {report.Verdicts.Count} pieces " +
-                              $"({report.LockedJobCount} locked class, {report.SupersededCount} superseded); " +
-                              $"{report.ProtectedCount} protected.");
+                              $"({report.LockedJobCount} locked class, {report.SupersededCount} superseded, " +
+                              $"{report.DuplicateCount} spare); {report.ProtectedCount} protected.");
 
         ImGui.Spacing();
         DrawTable();
@@ -206,6 +206,7 @@ public sealed class ArmoryTab
     {
         VerdictKind.JunkLockedJob => "Junk: locked",
         VerdictKind.JunkSuperseded => "Junk: outclassed",
+        VerdictKind.JunkDuplicate => "Junk: spare",
         _ => verdict.Keep switch
         {
             KeepReason.NoBetterOwned => "Keep",
@@ -232,6 +233,6 @@ public sealed class ArmoryTab
         var scanned = plugin.ArmoryScanner.Scan();
         report = plugin.ArmoryAnalyzer.Analyze(scanned);
 
-        plugin.ArmoryHighlighter.SetJunk(report.JunkItemIds);
+        plugin.ArmoryHighlighter.SetJunk(report.JunkSlots);
     }
 }

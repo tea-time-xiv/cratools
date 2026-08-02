@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace Cratools.Armory;
 
@@ -12,6 +13,9 @@ public enum VerdictKind
 
     /// <summary>Better gear is already owned for every unlocked job that could wear it.</summary>
     JunkSuperseded,
+
+    /// <summary>A spare copy of a piece that is already being kept.</summary>
+    JunkDuplicate,
 }
 
 /// <summary>Why an item was kept. Protections win over every junk rule.</summary>
@@ -41,11 +45,15 @@ public sealed class ArmoryReport
     public int JunkCount { get; set; }
     public int LockedJobCount { get; set; }
     public int SupersededCount { get; set; }
+    public int DuplicateCount { get; set; }
     public int ProtectedCount { get; set; }
     public bool PlayerStateLoaded { get; set; }
 
-    /// <summary>Base item ids judged junk, for the overlay to tint.</summary>
-    public HashSet<uint> JunkItemIds { get; } = new();
+    /// <summary>
+    /// The exact container slots judged junk, for the overlay to tint. Slots rather than item ids:
+    /// duplicates mean two copies of one id can get opposite verdicts.
+    /// </summary>
+    public HashSet<(InventoryType Container, short Slot)> JunkSlots { get; } = new();
 }
 
 /// <summary>
@@ -108,9 +116,78 @@ public sealed class ArmoryAnalyzer
             if (item.IsEquipped)
                 continue;
 
-            var verdict = Judge(item, facts, bySlot);
-            report.Verdicts.Add(verdict);
+            report.Verdicts.Add(Judge(item, facts, bySlot));
+        }
 
+        MarkDuplicates(report);
+        Tally(report);
+
+        return report;
+    }
+
+    /// <summary>
+    /// Turns spare copies of a survivor into junk: if two identical pieces both came out of the
+    /// rules worth keeping, only one of them is.
+    ///
+    /// Deliberately narrow. It only looks at pieces kept on their own merit — a protected copy
+    /// (gearset, melded, pinned) neither becomes a duplicate nor makes others one, because a
+    /// gearset stores item ids rather than slots and cannot tell two copies apart. Rings are
+    /// skipped entirely: both hands take one, so a second copy is a legitimate pair.
+    /// </summary>
+    private static void MarkDuplicates(ArmoryReport report)
+    {
+        var survivors = new Dictionary<uint, List<int>>();
+
+        for (var i = 0; i < report.Verdicts.Count; i++)
+        {
+            var verdict = report.Verdicts[i];
+            if (verdict.IsJunk || verdict.Keep != KeepReason.NoBetterOwned)
+                continue;
+
+            if (verdict.Facts.Slot == GearSlot.Finger)
+                continue;
+
+            if (!survivors.TryGetValue(verdict.Item.ItemId, out var indices))
+                survivors[verdict.Item.ItemId] = indices = new List<int>();
+
+            indices.Add(i);
+        }
+
+        foreach (var (_, indices) in survivors)
+        {
+            if (indices.Count < 2)
+                continue;
+
+            // Keep the best copy: high quality wins, then the earliest slot, so the survivor is
+            // stable between scans.
+            var keeper = indices[0];
+            foreach (var index in indices)
+            {
+                var candidate = report.Verdicts[index].Item;
+                var current = report.Verdicts[keeper].Item;
+                if (candidate.IsHq && !current.IsHq)
+                    keeper = index;
+            }
+
+            foreach (var index in indices)
+            {
+                if (index == keeper)
+                    continue;
+
+                var verdict = report.Verdicts[index];
+                report.Verdicts[index] = verdict with
+                {
+                    Kind = VerdictKind.JunkDuplicate,
+                    Explanation = $"Spare copy; you own {indices.Count}.",
+                };
+            }
+        }
+    }
+
+    private static void Tally(ArmoryReport report)
+    {
+        foreach (var verdict in report.Verdicts)
+        {
             switch (verdict.Kind)
             {
                 case VerdictKind.JunkLockedJob:
@@ -119,28 +196,21 @@ public sealed class ArmoryAnalyzer
                 case VerdictKind.JunkSuperseded:
                     report.SupersededCount++;
                     break;
+                case VerdictKind.JunkDuplicate:
+                    report.DuplicateCount++;
+                    break;
             }
 
             if (verdict.IsJunk)
             {
                 report.JunkCount++;
-                report.JunkItemIds.Add(item.ItemId);
+                report.JunkSlots.Add((verdict.Item.Container, verdict.Item.Slot));
             }
             else if (verdict.Keep != KeepReason.NoBetterOwned)
             {
                 report.ProtectedCount++;
             }
         }
-
-        // An item id is only safe to tint if every copy of it is junk. A protected copy elsewhere
-        // in the armoury would otherwise be tinted too, since the overlay matches on item id.
-        foreach (var verdict in report.Verdicts)
-        {
-            if (!verdict.IsJunk)
-                report.JunkItemIds.Remove(verdict.Item.ItemId);
-        }
-
-        return report;
     }
 
     private ArmoryVerdict Judge(ArmoryItem item, ItemFacts facts,

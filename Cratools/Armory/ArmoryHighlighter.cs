@@ -28,7 +28,8 @@ public sealed unsafe class ArmoryHighlighter
     private readonly IGameGui gameGui;
     private readonly Configuration configuration;
 
-    private HashSet<uint> junkIds = new();
+    // Exact container slots, not item ids: two copies of one item can get opposite verdicts.
+    private HashSet<(InventoryType Container, short Slot)> junkSlots = new();
 
     public ArmoryHighlighter(IGameGui gameGui, Configuration configuration)
     {
@@ -36,16 +37,17 @@ public sealed unsafe class ArmoryHighlighter
         this.configuration = configuration;
     }
 
-    public int JunkCount => junkIds.Count;
+    public int JunkCount => junkSlots.Count;
 
-    public void SetJunk(IEnumerable<uint> ids) => junkIds = new HashSet<uint>(ids);
+    public void SetJunk(IEnumerable<(InventoryType Container, short Slot)> slots)
+        => junkSlots = new HashSet<(InventoryType, short)>(slots);
 
-    public void Clear() => junkIds = new HashSet<uint>();
+    public void Clear() => junkSlots = new HashSet<(InventoryType, short)>();
 
     /// <summary>Called every frame from UiBuilder.Draw.</summary>
     public void Draw()
     {
-        if (!configuration.ArmoryHighlightEnabled || junkIds.Count == 0)
+        if (!configuration.ArmoryHighlightEnabled || junkSlots.Count == 0)
             return;
 
         var addonPtr = gameGui.GetAddonByName("ArmouryBoard", 1);
@@ -85,12 +87,13 @@ public sealed unsafe class ArmoryHighlighter
             if (entry == null)
                 continue;
 
-            var container = inv->GetInventoryContainer(sorter->InventoryType + entry->Page);
+            var containerType = sorter->InventoryType + entry->Page;
+            var container = inv->GetInventoryContainer(containerType);
             var slot = container != null ? container->GetInventorySlot(entry->Slot) : null;
             if (slot == null || slot->ItemId == 0)
                 continue;
 
-            if (!junkIds.Contains(GearsetIndex.Normalize(slot->ItemId)))
+            if (!junkSlots.Contains((containerType, (short)entry->Slot)))
                 continue;
 
             SlotOverlay.DrawRect((FFXIVClientStructs.FFXIV.Component.GUI.AtkResNode*)dragDrop->OwnerNode,

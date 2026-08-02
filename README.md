@@ -47,11 +47,13 @@ that could not be matched to an item are listed so you can spot typos or localis
 Press **Scan armoury**. Every piece is listed with the verdict and the reason for it — read the
 *Why* column before trusting anything. Junk is also tinted red in the Armoury Chest itself.
 
-An item is called junk for one of two reasons:
+An item is called junk for one of three reasons:
 
 - **Locked class** — no class or job you play can equip it at all. This is where most of the value
   is: weapons serve a single class, so every weapon for a class you never unlocked is dead weight.
 - **Outclassed** — for *every* job you play that could wear it, you already own something better.
+- **Spare** — an identical copy of a piece that is already being kept. Rings are exempt, since both
+  hands take one and a second copy is a legitimate pair.
 
 "Better" is deliberately narrow. A candidate must be the same slot, usable by that job, wearable at
 that job's *current level*, of higher item level, **and** of the same role — either an identical
