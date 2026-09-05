@@ -89,6 +89,13 @@ public sealed class GlamourGapFinder
     {
         var report = new GlamourGapReport { State = state };
 
+        // One row per distinct piece, not per copy. The dresser only ever needs one of a thing, so
+        // a second copy of a piece already listed says nothing new, and counting it would inflate
+        // both the totals and the per-outfit "N here". Where copies disagree, the one that can
+        // actually be deposited wins over one that is worn, melded or damaged.
+        var best = new Dictionary<uint, GlamourGapEntry>();
+        var order = new List<uint>();
+
         foreach (var item in scanned)
         {
             report.Scanned++;
@@ -100,12 +107,26 @@ public sealed class GlamourGapFinder
             if (entry.Kind == GlamourGapKind.StoreInArmoire && !configuration.GlamourIncludeArmoire)
                 continue;
 
+            if (!best.TryGetValue(item.ItemId, out var existing))
+            {
+                best[item.ItemId] = entry;
+                order.Add(item.ItemId);
+                continue;
+            }
+
+            if (!existing.IsActionable && entry.IsActionable)
+                best[item.ItemId] = entry;
+        }
+
+        foreach (var id in order)
+        {
+            var entry = best[id];
             report.Entries.Add(entry);
 
             if (entry.IsActionable)
             {
                 report.ActionableCount++;
-                report.GapSlots.Add((item.Container, item.Slot));
+                report.GapSlots.Add((entry.Item.Container, entry.Item.Slot));
             }
             else
             {
@@ -120,8 +141,11 @@ public sealed class GlamourGapFinder
     {
         var id = item.ItemId;
 
-        var name = rules.TryGetFacts(id, out var facts) ? facts.Name : $"Item #{id}";
-        var slot = facts.Slot;
+        // An item with no facts is not gear the equip rules know; naming it after the default
+        // GearSlot (MainHand) would be a lie, so it is reported as slotless instead.
+        var known = rules.TryGetFacts(id, out var facts);
+        var name = known ? facts.Name : $"Item #{id}";
+        var slot = known ? facts.Slot : GearSlot.Unknown;
 
         if (sets.IsCabinetItem(id))
         {

@@ -50,6 +50,8 @@ public sealed unsafe class InventoryHighlighter
     private readonly IGameGui gameGui;
     private readonly Configuration configuration;
 
+    private readonly List<(string Addon, int Page)> resolvedGrids = new(BagCount + 3);
+
     private HashSet<uint> removableIds = new();
     private HashSet<(InventoryType Container, short Slot)> gapSlots = new();
 
@@ -143,7 +145,10 @@ public sealed unsafe class InventoryHighlighter
     /// </summary>
     private List<(string Addon, int Page)> ResolveGrids()
     {
-        var grids = new List<(string, int)>(BagCount);
+        // Reused rather than reallocated: this runs on every frame the overlay is up, and Draw is
+        // the only caller, on the one UI thread.
+        var grids = resolvedGrids;
+        grids.Clear();
 
         for (var g = 0; g < ExpandedGrids.Length; g++)
             grids.Add((ExpandedGrids[g], g));
