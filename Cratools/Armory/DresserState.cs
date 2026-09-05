@@ -156,6 +156,10 @@ public sealed unsafe class DresserState
             Merge(id, SetBitsMeanMissingSlots ? FilledFromMissing(sets, id, mask) : mask);
         }
 
+        // Deliberately not "the module exists": the cache file is all zeroes for a character who
+        // has never opened the dresser, and reading that as a known-empty dresser would make every
+        // piece they own a gap. An actually empty dresser reads as unknown instead, which costs one
+        // wrong banner and no wrong suggestions. The prism box, being live, has no such ambiguity.
         return DresserEntryCount > 0;
     }
 
@@ -181,10 +185,16 @@ public sealed unsafe class DresserState
                 continue;
             }
 
+            // Only over the slots the set actually uses, so a stray unlocked bit on a slot the
+            // outfit leaves empty cannot make "6 of 5 stored". The cache path filters the same way,
+            // in FilledFromMissing. IsSetToken already answered, so the lookup cannot miss.
+            if (!sets.TryGetSet(id, out var set))
+                continue;
+
             ushort mask = 0;
             for (var slot = 0; slot < GlamourSets.SetSlotCount; slot++)
             {
-                if (mirage->IsSetSlotUnlocked((uint)i, slot))
+                if (set.Pieces[slot] != 0 && mirage->IsSetSlotUnlocked((uint)i, slot))
                     mask |= (ushort)(1 << slot);
             }
 

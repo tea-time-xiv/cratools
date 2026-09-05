@@ -21,6 +21,12 @@ public enum GearSlot
     Wrists,
     Finger,
     SoulCrystal,
+
+    /// <summary>
+    /// Not gear the equip rules know. Last on purpose: the default of this enum is MainHand, so a
+    /// caller that has no facts must say Unknown rather than let the default speak for it.
+    /// </summary>
+    Unknown,
 }
 
 public static class GearSlots

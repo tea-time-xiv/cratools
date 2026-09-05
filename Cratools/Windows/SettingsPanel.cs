@@ -28,8 +28,8 @@ public static class SettingsPanel
             configuration.Save();
         }
 
-        ImGui.TextWrapped("How strongly the slots you keep are dimmed. The fade only shows in the " +
-                          "'all bags' (InventoryExpansion) window while a list is applied.");
+        ImGui.TextWrapped("How strongly the slots you keep are dimmed. The fade shows in any of the " +
+                          "three inventory layouts while a list is applied.");
 
         ImGui.Spacing();
         ImGui.Separator();
