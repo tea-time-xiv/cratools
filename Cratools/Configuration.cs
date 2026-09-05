@@ -37,6 +37,21 @@ public class Configuration : IPluginConfiguration
     // Item ids the player marked as keep-forever.
     public HashSet<uint> ArmoryKeepList { get; set; } = new();
 
+    // --- Glamour collection ---
+
+    // Master toggle for the "not collected yet" marking.
+    public bool GlamourGapsEnabled { get; set; } = true;
+
+    // Opacity of the rectangle drawn over gear that is worth storing.
+    public float GlamourTintOpacity { get; set; } = 0.35f;
+
+    // Also look through the inventory bags, not just the armoury and what is worn.
+    public bool GlamourIncludeBags { get; set; } = true;
+
+    // Armoire-eligible gear cannot go in the dresser at all; report it as an armoire deposit
+    // instead of ignoring it.
+    public bool GlamourIncludeArmoire { get; set; } = true;
+
     public void Save()
     {
         Plugin.PluginInterface.SavePluginConfig(this);

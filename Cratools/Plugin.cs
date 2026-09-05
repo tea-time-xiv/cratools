@@ -31,6 +31,10 @@ public sealed class Plugin : IDalamudPlugin
     public ArmoryHighlighter ArmoryHighlighter { get; init; }
     private ArmoryDebug ArmoryDebug { get; init; }
 
+    public GlamourSets GlamourSets { get; init; }
+    public GlamourGapFinder GlamourGapFinder { get; init; }
+    private GlamourDebug GlamourDebug { get; init; }
+
     public readonly WindowSystem WindowSystem = new("Cratools");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
@@ -50,6 +54,10 @@ public sealed class Plugin : IDalamudPlugin
         ArmoryHighlighter = new ArmoryHighlighter(GameGui, Configuration);
         ArmoryDebug = new ArmoryDebug(GameGui, Log, EquipRules, ArmoryScanner, GearsetIndex, JobUnlockState);
 
+        GlamourSets = new GlamourSets(DataManager, Log);
+        GlamourGapFinder = new GlamourGapFinder(GlamourSets, EquipRules, GearsetIndex, Configuration);
+        GlamourDebug = new GlamourDebug(Log, GameGui, GlamourSets, ArmoryScanner, GlamourGapFinder);
+
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -58,7 +66,8 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
             HelpMessage = "Open the Cratools window. \"armory\" opens the armory cleanup list, " +
-                          "\"armorydump\" logs armoury diagnostics.",
+                          "\"glamour\" opens the uncollected-gear list, \"armorydump\" and " +
+                          "\"glamourdump\" log diagnostics.",
         });
 
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
@@ -95,9 +104,21 @@ public sealed class Plugin : IDalamudPlugin
             return;
         }
 
+        if (argument.Equals("glamourdump", StringComparison.OrdinalIgnoreCase))
+        {
+            GlamourDebug.Dump();
+            return;
+        }
+
         if (argument.Equals("armory", StringComparison.OrdinalIgnoreCase))
         {
             MainWindow.ShowArmory();
+            return;
+        }
+
+        if (argument.Equals("glamour", StringComparison.OrdinalIgnoreCase))
+        {
+            MainWindow.ShowGlamour();
             return;
         }
 

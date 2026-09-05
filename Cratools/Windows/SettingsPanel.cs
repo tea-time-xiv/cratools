@@ -60,6 +60,33 @@ public static class SettingsPanel
         ImGui.Separator();
         ImGui.Spacing();
 
+        ImGui.TextUnformatted("Glamour collection");
+        ImGui.Spacing();
+
+        var glamourEnabled = configuration.GlamourGapsEnabled;
+        if (ImGui.Checkbox("Enable \"worth storing\" marks", ref glamourEnabled))
+        {
+            configuration.GlamourGapsEnabled = glamourEnabled;
+            configuration.Save();
+        }
+
+        var glamourTint = configuration.GlamourTintOpacity;
+        ImGui.SetNextItemWidth(220f);
+        if (ImGui.SliderFloat("Store tint opacity", ref glamourTint, 0.1f, 0.8f))
+        {
+            configuration.GlamourTintOpacity = glamourTint;
+            configuration.Save();
+        }
+
+        ImGui.TextWrapped("Gear that is not in the glamour dresser yet is outlined gold in the " +
+                          "Armoury Chest and the 'all bags' window. Junk gear that is also worth " +
+                          "storing keeps its red tint and gains the outline, so the two marks never " +
+                          "hide each other. Run the scan from the Glamour collection tab first.");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
         ImGui.TextUnformatted($"Keep list: {configuration.ArmoryKeepList.Count} item(s) pinned.");
         ImGui.SameLine();
         if (ImGui.Button("Empty keep list") && configuration.ArmoryKeepList.Count > 0)

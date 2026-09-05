@@ -3,13 +3,15 @@
 A [Dalamud](https://github.com/goatcorp/Dalamud) plugin for FFXIV that highlights items you no
 longer need, so you can clear space without reading every tooltip.
 
-Two features so far:
+Three features so far:
 
 - **Inventory cleanup** — paste a [Teamcraft](https://ffxivteamcraft.com/) inventory-cleanup list
-  and the slots you need to *keep* are dimmed in the open-all-bags window, leaving the removable
-  items bright.
+  and the slots you need to *keep* are dimmed in your inventory, leaving the removable items
+  bright.
 - **Armory cleanup** — scans your Armoury Chest and marks gear that is redundant: equipment no
   class you play can wear, and equipment you already own something better than.
+- **Glamour collection** — the other direction: marks gear you are about to throw away that the
+  glamour dresser has never seen, and that can still be stored as an outfit set.
 
 Cratools is **strictly read-only**. It reads your inventory and draws over the game's windows. It
 never moves, discards, sells, or desynthesises anything, and it never writes to game memory — so
@@ -35,12 +37,15 @@ Everything lives in one window, opened with `/cratools` or the plugin installer'
 | --- | --- |
 | `/cratools` | Open the window |
 | `/cratools armory` | Open it on the Armory cleanup tab |
+| `/cratools glamour` | Open it on the Glamour collection tab |
 | `/cratools armorydump` | Log armoury diagnostics to `dalamud.log` |
+| `/cratools glamourdump` | Log glamour dresser diagnostics to `dalamud.log` |
 
 ### Inventory cleanup
 
-Paste the list Teamcraft gives you, press **Apply**, then open all bags. Keepers are dimmed. Names
-that could not be matched to an item are listed so you can spot typos or localisation mismatches.
+Paste the list Teamcraft gives you, press **Apply**, then open your bags — any of the three
+inventory layouts works. Keepers are dimmed. Names that could not be matched to an item are listed
+so you can spot typos or localisation mismatches.
 
 ### Armory cleanup
 
@@ -74,6 +79,42 @@ classes you do not really play.
 
 It cuts both ways: those classes stop holding shared gear hostage, but gear only they can use starts
 counting as junk. Pick the number deliberately.
+
+### Glamour collection
+
+Patch 7.1 lets the glamour dresser store a whole outfit in a single slot, which makes a lot of old
+gear worth keeping that used to be worth scrapping. This tab finds it: gear in your armoury, bags
+or on your back that belongs to an outfit set the dresser does not hold yet.
+
+Press **Scan for uncollected gear**. Results are grouped by outfit, because a full armoury turns up
+a couple of hundred loose pieces and "this outfit needs three more" is the unit the dresser actually
+stores in:
+
+```
+Halonic Priest's Attire — 3 here, none of 5 stored
+Woad Skyraider's Attire — 1 here, 8 of 9 stored
+Armoire — 16 to deposit
+```
+
+Anything found is outlined **gold** in the Armoury Chest and in your bags. Gear that is *both* junk
+and worth storing keeps its red tint and gains the gold outline — "you do not need to wear this,
+but do not throw it away either".
+
+A piece is only listed if the game would actually accept it:
+
+- **Armoire gear is never a dresser suggestion.** The dresser refuses anything the armoire can
+  hold, so those pieces are listed separately as armoire deposits. The armoire is free and
+  unlimited, so that is usually the cheaper half of the job. Toggle it off if you only care about
+  the dresser.
+- Pieces already in the dresser — loose, or filling their slot in a stored outfit — are not listed.
+- Pieces the dresser would refuse right now are listed as **blocked**, with the reason: worn, in a
+  gearset, melded, or in need of repair. Use *Hide blocked* to drop them.
+
+**Cratools has to know what your dresser holds.** It reads the game's own dresser cache, which
+survives zoning and logging out, so a scan usually works anywhere. If the cache has never been
+filled the tab says so — open the glamour dresser once (an inn room will do) and scan again. The
+armoire needs opening once per session for the same reason. Scanning with the dresser actually open
+reads it exactly rather than from cache.
 
 ## Build
 

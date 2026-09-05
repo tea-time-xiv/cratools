@@ -14,13 +14,15 @@ public class MainWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
     private readonly ArmoryTab armoryTab;
+    private readonly GlamourTab glamourTab;
 
     private string pasteText = string.Empty;
     private int matchedItems;
     private readonly List<string> unmatched = new();
 
-    // Set when something asks for the armory tab specifically; consumed by the next Draw.
+    // Set when something asks for a particular tab; consumed by the next Draw.
     private bool selectArmory;
+    private bool selectGlamour;
 
     public MainWindow(Plugin plugin)
         : base("Cratools##CratoolsMainWindow")
@@ -33,6 +35,7 @@ public class MainWindow : Window, IDisposable
 
         this.plugin = plugin;
         armoryTab = new ArmoryTab(plugin);
+        glamourTab = new GlamourTab(plugin);
     }
 
     public void Dispose() { }
@@ -42,6 +45,13 @@ public class MainWindow : Window, IDisposable
     {
         IsOpen = true;
         selectArmory = true;
+    }
+
+    /// <summary>Opens the window on the glamour collection tab.</summary>
+    public void ShowGlamour()
+    {
+        IsOpen = true;
+        selectGlamour = true;
     }
 
     public override void Draw()
@@ -61,6 +71,15 @@ public class MainWindow : Window, IDisposable
         if (ImGui.BeginTabItem("Armory cleanup", armoryFlags))
         {
             armoryTab.Draw();
+            ImGui.EndTabItem();
+        }
+
+        var glamourFlags = selectGlamour ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
+        selectGlamour = false;
+
+        if (ImGui.BeginTabItem("Glamour collection", glamourFlags))
+        {
+            glamourTab.Draw();
             ImGui.EndTabItem();
         }
 
