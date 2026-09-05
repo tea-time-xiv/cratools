@@ -4,9 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Cratools is a Dalamud (FFXIV/XIVLauncher) plugin. MVP feature: paste Teamcraft's "inventory
-cleanup" text into the `/cratools` window; the plugin dims ("fades") the inventory slots you need
-to keep in the open-all-bags window, so the removable items stand out.
+Cratools is a Dalamud (FFXIV/XIVLauncher) plugin. Three features, all strictly read-only overlays
+over the game's own windows:
+
+- **Inventory cleanup** (the MVP): paste Teamcraft's "inventory cleanup" text into the `/cratools`
+  window; the plugin dims ("fades") the inventory slots you need to keep, so the removable items
+  stand out.
+- **Armory cleanup**: marks armoury gear no unlocked class can wear, or that better owned gear
+  supersedes, red in the Armoury Chest.
+- **Glamour collection**: the inverse — marks gear that is *not* in the glamour dresser yet and
+  can still be stored as an outfit set, gold, so it is kept rather than scrapped.
 
 ## Build
 
@@ -38,18 +45,37 @@ Data flows one direction, `Plugin.cs` wiring it together:
    line + optional `xN`) into `CleanupEntry` items.
 3. **`ItemResolver.cs`** — resolves item names → item RowId via the Lumina `Item` sheet
    (`IDataManager`), built once, case-insensitive. HQ items share the base RowId.
-4. **`InventoryHighlighter.cs`** — the overlay. `MainWindow` feeds it the resolved removable
-   RowIds; each frame it dims the keeper slots.
+4. **`InventoryHighlighter.cs`** — the bags overlay. `MainWindow` feeds it the resolved removable
+   RowIds and `GlamourTab` feeds it the glamour gaps; each frame it dims the keeper slots and
+   outlines the gaps.
 
-`Configuration.cs` (`IPluginConfiguration`) is the persisted state (`HighlightEnabled`,
-`FadeOpacity`); `Configuration.Save()` calls `PluginInterface.SavePluginConfig`.
+The armory and glamour features add, under `Armory/`:
+
+5. **`ArmoryScanner.cs`** — reads the armoury containers, the equipped set and (opt-in) the four
+   inventory bags into `ArmoryItem` records. **`EquipRules.cs`** / **`JobUnlockState.cs`** /
+   **`GearsetIndex.cs`** are the sheet- and character-derived facts the classifiers need.
+6. **`ArmoryAnalyzer.cs`** — the junk classifier; **`ArmoryHighlighter.cs`** the Armoury Chest
+   overlay for both the junk tint and the glamour outline.
+7. **`GlamourSets.cs`** — outfit sets and armoire eligibility from the sheets, built once.
+   **`DresserState.cs`** — a read-only snapshot of what the dresser and armoire hold.
+   **`GlamourGapFinder.cs`** — the classifier over the two.
+8. **`ArmoryDebug.cs`** / **`GlamourDebug.cs`** — `/cratools armorydump` and `/cratools
+   glamourdump`. Both exist to pin down addon and memory layouts that only the running game can
+   confirm; keep them working, they are the regression check after a patch.
+
+`Configuration.cs` (`IPluginConfiguration`) is the persisted state; `Configuration.Save()` calls
+`PluginInterface.SavePluginConfig`.
 
 ### The one non-obvious mechanism (InventoryHighlighter)
 
 Getting the fade onto the *right* slots took several dead ends; do not undo these:
 
-- The open-all-bags window `InventoryExpansion` is only a frame (no slots). The item slots live in
-  four separate grid addons **`InventoryGrid0E`–`InventoryGrid3E`**.
+- The inventory windows are only frames (no slots). The item slots live in separate grid addons,
+  and *which* ones depends on the layout: `InventoryExpansion` (all bags) uses
+  **`InventoryGrid0E`–`InventoryGrid3E`**, one per bag; `InventoryLarge` (two bags) uses
+  **`InventoryGrid0`/`InventoryGrid1`** showing the bag pair its `TabIndex` selects; `Inventory`
+  (one bag) uses **`InventoryGrid`** showing the bag its `TabIndex` selects. Handling only the
+  expanded view is the standard way this feature looks broken.
 - Don't tree-walk the grids for drag-drop nodes — that returns 70/grid (35 real + 35 hidden
   templates) in the wrong order. Use `AddonInventoryGrid.Slots` (ClientStructs), the ordered
   35-entry `AtkComponentDragDrop` array; `Slots[i]->OwnerNode` is the slot's node for its rect.
@@ -60,6 +86,28 @@ Getting the fade onto the *right* slots took several dead ends; do not undo thes
 - The overlay is strictly **read-only** — it reads node screen rects and draws translucent rects
   on `ImGui.GetBackgroundDrawList()`. It never writes game memory, so there is nothing to reset on
   teardown or when the window closes.
+
+### The other non-obvious mechanism (glamour dresser)
+
+Four facts, each confirmed in-game with `/cratools glamourdump`; none is guessable from the names:
+
+- A stored outfit occupies **one** dresser entry holding the set's *token* item id — the "… Attire"
+  row of `MirageStoreSetItem`, whose eleven columns are the pieces in the order MainHand, OffHand,
+  Head, Body, Hands, Legs, Feet, Earrings, Necklace, Bracelets, Ring. That column index is the slot
+  index every eleven-bit mask in this area uses.
+- `ItemFinderModule.IsGlamourDresserCached` is **not** a "has data" flag. It read false over eight
+  hundred fully populated entries. Never gate on it; check for non-zero ids instead.
+- `ItemFinderModule.GlamourDresserItemSetUnlockBits` marks the slots that are **missing**, the
+  complement of `MirageManager.IsSetSlotUnlocked` despite the name (verified 8/8 against 0/8 for
+  the opposite reading). One constant, `DresserState.SetBitsMeanMissingSlots`, holds the polarity.
+- Armoire-eligible gear (the `Cabinet` sheet) can **never** go in the dresser, so it is never a
+  dresser suggestion. Roughly 2300 of the 5900 outfit pieces are armoire items, so skipping this
+  check produces thousands of impossible suggestions.
+
+`MirageManager` is authoritative but only populated while the dresser has been opened in the
+current zone; `ItemFinderModule` is a saved per-character file that survives zoning and logout.
+`DresserState` prefers the first and falls back to the second, which is why nothing has to be
+persisted in `Configuration`.
 
 ## Conventions
 

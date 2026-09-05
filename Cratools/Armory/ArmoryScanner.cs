@@ -12,7 +12,8 @@ public readonly record struct ArmoryItem(
     byte MateriaCount,
     uint GlamourId,
     byte Stain0,
-    byte Stain1)
+    byte Stain1,
+    ushort Condition)
 {
     public bool IsEquipped => Container == InventoryType.EquippedItems;
 
@@ -21,8 +22,12 @@ public readonly record struct ArmoryItem(
 }
 
 /// <summary>
-/// Reads the thirteen armoury containers plus the equipped set. Strictly read-only: it copies the
-/// fields the classifier needs out of each <see cref="InventoryItem"/> and touches nothing else.
+/// Reads the thirteen armoury containers, the equipped set and — on request — the four inventory
+/// bags. Strictly read-only: it copies the fields the classifiers need out of each
+/// <see cref="InventoryItem"/> and touches nothing else.
+///
+/// The bags are opt-in because the junk classifier is about the armoury; the glamour-gap pass wants
+/// them, since gear waiting to be stored is usually still sitting in a bag.
 /// </summary>
 public sealed unsafe class ArmoryScanner
 {
@@ -43,8 +48,16 @@ public sealed unsafe class ArmoryScanner
         InventoryType.ArmorySoulCrystal,
     };
 
+    public static readonly InventoryType[] BagContainers =
+    {
+        InventoryType.Inventory1,
+        InventoryType.Inventory2,
+        InventoryType.Inventory3,
+        InventoryType.Inventory4,
+    };
+
     /// <summary>Armoury contents. Pass includeEquipped to also report what the player is wearing.</summary>
-    public List<ArmoryItem> Scan(bool includeEquipped = true)
+    public List<ArmoryItem> Scan(bool includeEquipped = true, bool includeBags = false)
     {
         var found = new List<ArmoryItem>();
 
@@ -57,6 +70,12 @@ public sealed unsafe class ArmoryScanner
 
         if (includeEquipped)
             ReadContainer(manager, InventoryType.EquippedItems, found);
+
+        if (includeBags)
+        {
+            foreach (var type in BagContainers)
+                ReadContainer(manager, type, found);
+        }
 
         return found;
     }
@@ -83,7 +102,8 @@ public sealed unsafe class ArmoryScanner
                 slot->GetMateriaCount(),
                 slot->GlamourId,
                 stains.Length > 0 ? stains[0] : (byte)0,
-                stains.Length > 1 ? stains[1] : (byte)0));
+                stains.Length > 1 ? stains[1] : (byte)0,
+                slot->Condition));
         }
     }
 }
