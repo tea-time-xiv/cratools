@@ -5,6 +5,7 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Cratools.Armory;
+using Cratools.Retainers;
 using Cratools.Windows;
 
 namespace Cratools;
@@ -16,6 +17,9 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
+    [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
+    [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
 
     private const string CommandName = "/cratools";
 
@@ -34,6 +38,10 @@ public sealed class Plugin : IDalamudPlugin
     public GlamourSets GlamourSets { get; init; }
     public GlamourGapFinder GlamourGapFinder { get; init; }
     private GlamourDebug GlamourDebug { get; init; }
+
+    public SaleHistoryCycler SaleHistoryCycler { get; init; }
+    private RetainerListButton RetainerListButton { get; init; }
+    private RetainerDebug RetainerDebug { get; init; }
 
     public readonly WindowSystem WindowSystem = new("Cratools");
     private ConfigWindow ConfigWindow { get; init; }
@@ -58,6 +66,11 @@ public sealed class Plugin : IDalamudPlugin
         GlamourGapFinder = new GlamourGapFinder(GlamourSets, EquipRules, GearsetIndex, Configuration);
         GlamourDebug = new GlamourDebug(Log, GameGui, GlamourSets, ArmoryScanner, GlamourGapFinder);
 
+        SaleHistoryCycler = new SaleHistoryCycler(PluginInterface, GameGui, Framework, AddonLifecycle, ChatGui, Log,
+                                                  Configuration);
+        RetainerListButton = new RetainerListButton(GameGui, SaleHistoryCycler, Configuration);
+        RetainerDebug = new RetainerDebug(Log, GameGui, AddonLifecycle, Framework, ChatGui);
+
         ConfigWindow = new ConfigWindow(this);
         MainWindow = new MainWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -67,12 +80,14 @@ public sealed class Plugin : IDalamudPlugin
         {
             HelpMessage = "Open the Cratools window. \"armory\" opens the armory cleanup list, " +
                           "\"glamour\" opens the uncollected-gear list, \"armorydump\" and " +
-                          "\"glamourdump\" log diagnostics.",
+                          "\"glamourdump\" log diagnostics, \"retainerdump\" toggles the retainer " +
+                          "window watch.",
         });
 
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
         PluginInterface.UiBuilder.Draw += Highlighter.Draw;
         PluginInterface.UiBuilder.Draw += ArmoryHighlighter.Draw;
+        PluginInterface.UiBuilder.Draw += RetainerListButton.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMainUi;
 
@@ -84,12 +99,15 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
         PluginInterface.UiBuilder.Draw -= Highlighter.Draw;
         PluginInterface.UiBuilder.Draw -= ArmoryHighlighter.Draw;
+        PluginInterface.UiBuilder.Draw -= RetainerListButton.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainUi;
 
         WindowSystem.RemoveAllWindows();
         ConfigWindow.Dispose();
         MainWindow.Dispose();
+        SaleHistoryCycler.Dispose();
+        RetainerDebug.Dispose();
 
         CommandManager.RemoveHandler(CommandName);
     }
@@ -107,6 +125,12 @@ public sealed class Plugin : IDalamudPlugin
         if (argument.Equals("glamourdump", StringComparison.OrdinalIgnoreCase))
         {
             GlamourDebug.Dump();
+            return;
+        }
+
+        if (argument.Equals("retainerdump", StringComparison.OrdinalIgnoreCase))
+        {
+            RetainerDebug.Toggle();
             return;
         }
 

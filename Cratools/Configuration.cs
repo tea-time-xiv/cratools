@@ -52,6 +52,16 @@ public class Configuration : IPluginConfiguration
     // instead of ignoring it.
     public bool GlamourIncludeArmoire { get; set; } = true;
 
+    // --- Retainer sale history ---
+
+    // Feature flag for the "Sale history" button on the retainer list. Off for fresh installs: it is
+    // the one feature that clicks through game windows, so nobody gets it without opting in.
+    public bool SaleHistoryButtonEnabled { get; set; } = false;
+
+    // How long each retainer's sale history stays open. Its rows arrive about 350 ms after it
+    // opens; the rest is margin for Cashflow to record them.
+    public int SaleHistoryDwellMs { get; set; } = 2000;
+
     public void Save()
     {
         Plugin.PluginInterface.SavePluginConfig(this);
