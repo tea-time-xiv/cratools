@@ -96,5 +96,33 @@ public static class SettingsPanel
         }
 
         ImGui.TextWrapped("Right-click any row in the armory list to pin or unpin an item.");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        ImGui.TextUnformatted("Retainer sale history");
+        ImGui.Spacing();
+
+        var saleButton = configuration.SaleHistoryButtonEnabled;
+        if (ImGui.Checkbox("Enable the \"Sale history\" button", ref saleButton))
+        {
+            configuration.SaleHistoryButtonEnabled = saleButton;
+            configuration.Save();
+        }
+
+        var dwell = configuration.SaleHistoryDwellMs;
+        ImGui.SetNextItemWidth(220f);
+        if (ImGui.SliderInt("Keep each history open (ms)", ref dwell, 500, 10000))
+        {
+            configuration.SaleHistoryDwellMs = dwell;
+            configuration.Save();
+        }
+
+        ImGui.TextWrapped("Off by default. Adds a button to the retainer list that opens every " +
+                          "active retainer's sale history in turn, so Cashflow can record it, and " +
+                          "stops once each has been visited. Unlike the rest of Cratools this clicks " +
+                          "through the game's windows for you; do not interact with the game while " +
+                          "it runs.");
     }
 }

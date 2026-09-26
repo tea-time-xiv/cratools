@@ -16,6 +16,9 @@ plain text, so keep it to short `-` bullets: no tables, no links, no bold.
 - Armoire-eligible gear is listed separately as an armoire deposit, since the dresser refuses it.
 - Pieces the dresser would refuse right now are marked blocked, with the reason.
 - The inventory fade now works in all three inventory layouts, not only the open-all-bags window.
+- New Sale history button on the retainer list, off by default (enable it in the settings):
+  opens every active retainer's sale history in turn so Cashflow can record it, then stops. Unlike the rest of Cratools it clicks through the
+  retainer windows for you; do not interact with the game while it runs.
 
 ## 0.2.0.0
 

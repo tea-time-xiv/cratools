@@ -3,7 +3,7 @@
 A [Dalamud](https://github.com/goatcorp/Dalamud) plugin for FFXIV that highlights items you no
 longer need, so you can clear space without reading every tooltip.
 
-Three features so far:
+Four features so far:
 
 - **Inventory cleanup** — paste a [Teamcraft](https://ffxivteamcraft.com/) inventory-cleanup list
   and the slots you need to *keep* are dimmed in your inventory, leaving the removable items
@@ -12,10 +12,16 @@ Three features so far:
   class you play can wear, and equipment you already own something better than.
 - **Glamour collection** — the other direction: marks gear you are about to throw away that the
   glamour dresser has never seen, and that can still be stored as an outfit set.
+- **Retainer sale history** — a button on the retainer list that opens every active retainer's
+  sale history in turn, so the Cashflow plugin can record it.
 
-Cratools is **strictly read-only**. It reads your inventory and draws over the game's windows. It
-never moves, discards, sells, or desynthesises anything, and it never writes to game memory — so
-there is nothing to undo, and nothing to reset if it crashes or is unloaded.
+The three cleanup features are **strictly read-only**. They read your inventory and draw over the
+game's windows. They never move, discard, sell, or desynthesise anything, and never write to game
+memory — so there is nothing to undo, and nothing to reset if Cratools crashes or is unloaded.
+
+Retainer sale history is the one exception: it clicks through the retainer windows for you, the
+way Dagobert's Auto Pinch does. It only opens and closes windows; it never sells, prices or moves
+anything.
 
 ## Install
 
@@ -40,6 +46,7 @@ Everything lives in one window, opened with `/cratools` or the plugin installer'
 | `/cratools glamour` | Open it on the Glamour collection tab |
 | `/cratools armorydump` | Log armoury diagnostics to `dalamud.log` |
 | `/cratools glamourdump` | Log glamour dresser diagnostics to `dalamud.log` |
+| `/cratools retainerdump` | Toggle a log of the retainer windows to `dalamud.log` |
 
 ### Inventory cleanup
 
@@ -115,6 +122,20 @@ survives zoning and logging out, so a scan usually works anywhere. If the cache 
 filled the tab says so — open the glamour dresser once (an inn room will do) and scan again. The
 armoire needs opening once per session for the same reason. Scanning with the dresser actually open
 reads it exactly rather than from cache.
+
+### Retainer sale history
+
+Cashflow records a retainer's sales when you open its sale history, which means clicking through
+every retainer by hand. The button is **off by default**: turn on *Enable the "Sale history"
+button* in the Cratools settings first. Then, at a summoning bell, press **Sale history** on the
+retainer list (top right, beside Dagobert's Auto Pinch if you have it). Cratools opens each active retainer, opens
+**View sale history**, keeps it open for two seconds, closes it and moves on, and stops once every
+active retainer has been visited.
+
+While it runs the button reads **Cancel**. Leave the game alone until it is done: if any step does
+not happen within ten seconds, the run stops where it is rather than click on blind. AutoRetainer,
+if installed, is paused for the length of the run. The two seconds can be changed in the
+settings.
 
 ## Build
 

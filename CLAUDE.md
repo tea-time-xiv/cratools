@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Cratools is a Dalamud (FFXIV/XIVLauncher) plugin. Three features, all strictly read-only overlays
-over the game's own windows:
+Cratools is a Dalamud (FFXIV/XIVLauncher) plugin. Three strictly read-only overlays over the
+game's own windows, plus one feature that drives the UI:
 
 - **Inventory cleanup** (the MVP): paste Teamcraft's "inventory cleanup" text into the `/cratools`
   window; the plugin dims ("fades") the inventory slots you need to keep, so the removable items
@@ -14,6 +14,10 @@ over the game's own windows:
   supersedes, red in the Armoury Chest.
 - **Glamour collection**: the inverse — marks gear that is *not* in the glamour dresser yet and
   can still be stored as an outfit set, gold, so it is kept rather than scrapped.
+- **Retainer sale history**: a button on the retainer list that opens each active retainer's sale
+  history in turn, for the separate Cashflow plugin to record. The only feature that clicks for the
+  player; all of its input goes through `Retainers/GameInput.cs`. Opt-in: the button is behind
+  `Configuration.SaleHistoryButtonEnabled`, which is off for fresh installs — keep it that way.
 
 ## Build
 
@@ -63,6 +67,17 @@ The armory and glamour features add, under `Armory/`:
    glamourdump`. Both exist to pin down addon and memory layouts that only the running game can
    confirm; keep them working, they are the regression check after a patch.
 
+The sale-history feature lives under `Retainers/`:
+
+9. **`SaleHistoryCycler.cs`** — the run: a queue of steps on `IFramework.Update`, each waiting for
+   its addon and timing out the whole run after 10 s. **`RetainerListButton.cs`** draws its button.
+   **`RetainerAddons.cs`** holds the confirmed addon layouts, **`GameInput.cs`** every callback and
+   click (ports of the ECommons bits Dagobert uses — Cratools deliberately has no ECommons), and
+   **`AutoRetainerSuppressor.cs`** pauses AutoRetainer over plain Dalamud IPC.
+10. **`RetainerDebug.cs`** — `/cratools retainerdump`, a toggle: snapshot, then a timestamped log
+    of every addon setup/refresh/close while you walk a retainer by hand. Same role as the other
+    dumps.
+
 `Configuration.cs` (`IPluginConfiguration`) is the persisted state; `Configuration.Save()` calls
 `PluginInterface.SavePluginConfig`.
 
@@ -108,6 +123,21 @@ Four facts, each confirmed in-game with `/cratools glamourdump`; none is guessab
 current zone; `ItemFinderModule` is a saved per-character file that survives zoning and logout.
 `DresserState` prefers the first and falls back to the second, which is why nothing has to be
 persisted in `Configuration`.
+
+### The third non-obvious mechanism (retainer sale history)
+
+Confirmed with `/cratools retainerdump` (2026-09-26); the layouts are in `RetainerAddons.cs`:
+
+- Picking a retainer **closes** `RetainerList`. It reopens only after the retainer menu
+  (`SelectString`) is closed *and* the Talk farewell is clicked through, so each visit ends by
+  waiting for the list, not by clicking the next row straight away. When it reopens it fills in
+  over a frame or two, so the cycler waits until the expected name is on the expected row.
+- `Talk` is never set up anew for retainers, only refreshed; listen on `PostUpdate`, not
+  `PostSetup`. The listener exists only while a run is going.
+- The history addon is `RetainerHistory`. It opens empty and its rows arrive ~350 ms later. The
+  consumer is Cashflow, so "loaded" is just a fixed dwell (`SaleHistoryDwellMs`, 2 s).
+- On failure the run stops where it is and closes nothing: clicking on after the game has gone
+  somewhere unexpected is how automation does damage.
 
 ## Conventions
 
