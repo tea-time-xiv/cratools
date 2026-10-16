@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Dalamud.Plugin.Services;
 using Lumina.Excel;
@@ -44,6 +44,12 @@ public sealed class EquipRules
     private readonly Dictionary<uint, int> jobExpArrayIndex = new();
     private readonly List<(uint RowId, string Abbreviation)> jobs = new();
 
+    // Base class RowId -> the jobs it becomes. Arcanist has two (Summoner and Scholar), so a list.
+    private readonly Dictionary<uint, List<uint>> classToJobs = new();
+
+    // Job RowId -> the soul crystal that proves the job is unlocked. Classes have none.
+    private readonly Dictionary<uint, uint> jobSoulCrystal = new();
+
     public EquipRules(IDataManager dataManager, IPluginLog log)
     {
         var classJobs = dataManager.GetExcelSheet<ClassJob>();
@@ -74,6 +80,21 @@ public sealed class EquipRules
 
             jobs.Add((job.RowId, abbreviation));
             jobExpArrayIndex[job.RowId] = job.ExpArrayIndex;
+
+            // A job row points at the class it grew out of; a class row points at itself. That is
+            // the only place the class/job line is written down.
+            var parent = job.ClassJobParent.RowId;
+            if (parent != 0 && parent != job.RowId)
+            {
+                if (!classToJobs.TryGetValue(parent, out var derived))
+                    classToJobs[parent] = derived = new List<uint>();
+
+                derived.Add(job.RowId);
+            }
+
+            var soulCrystal = job.ItemSoulCrystal.RowId;
+            if (soulCrystal != 0)
+                jobSoulCrystal[job.RowId] = soulCrystal;
         }
 
         var categoryJobMasks = BuildCategoryJobMasks(dataManager, log);
@@ -117,6 +138,13 @@ public sealed class EquipRules
     public bool TryGetExpArrayIndex(uint classJobRowId, out int index)
         => jobExpArrayIndex.TryGetValue(classJobRowId, out index);
 
+    /// <summary>The jobs a base class becomes, or null when the row is not a base class.</summary>
+    public IReadOnlyList<uint>? JobsOfClass(uint classJobRowId)
+        => classToJobs.GetValueOrDefault(classJobRowId);
+
+    /// <summary>The soul crystal item that proves a job is unlocked, or 0 for a class.</summary>
+    public uint SoulCrystalOf(uint classJobRowId) => jobSoulCrystal.GetValueOrDefault(classJobRowId, 0u);
+
     public static bool JobInMask(ulong mask, uint classJobRowId)
         => classJobRowId < 64 && (mask & (1UL << (int)classJobRowId)) != 0;
 
@@ -150,6 +178,18 @@ public sealed class EquipRules
             {
                 if (row.ReadBoolColumn((int)rowId + 1))
                     mask |= 1UL << (int)rowId;
+            }
+
+            // A job wears everything its base class can, but ClassJobCategory only ever names the
+            // class. Without this, job-only gear never competes with class gear and every axe an
+            // "MRD WAR" category covers looks like the Marauder's last resort.
+            foreach (var (classRow, derived) in classToJobs)
+            {
+                if ((mask & (1UL << (int)classRow)) == 0)
+                    continue;
+
+                foreach (var jobRow in derived)
+                    mask |= 1UL << (int)jobRow;
             }
 
             masks[row.RowId] = mask;

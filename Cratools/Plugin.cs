@@ -60,7 +60,8 @@ public sealed class Plugin : IDalamudPlugin
         JobUnlockState = new JobUnlockState(EquipRules);
         ArmoryAnalyzer = new ArmoryAnalyzer(EquipRules, JobUnlockState, GearsetIndex, Configuration);
         ArmoryHighlighter = new ArmoryHighlighter(GameGui, Configuration);
-        ArmoryDebug = new ArmoryDebug(GameGui, Log, EquipRules, ArmoryScanner, GearsetIndex, JobUnlockState);
+        ArmoryDebug = new ArmoryDebug(GameGui, Log, EquipRules, ArmoryScanner, GearsetIndex, JobUnlockState,
+                                      ArmoryAnalyzer, Configuration);
 
         GlamourSets = new GlamourSets(DataManager, Log);
         GlamourGapFinder = new GlamourGapFinder(GlamourSets, EquipRules, GearsetIndex, Configuration);

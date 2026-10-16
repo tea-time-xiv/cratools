@@ -57,6 +57,30 @@ public static class SettingsPanel
                           "Run the scan from the Armory cleanup tab first.");
 
         ImGui.Spacing();
+
+        var consolidate = configuration.ArmoryConsolidateShared;
+        if (ImGui.Checkbox("Trade stats for slots", ref consolidate))
+        {
+            configuration.ArmoryConsolidateShared = consolidate;
+            configuration.Save();
+        }
+
+        var tolerance = configuration.ArmoryConsolidateIlvlTolerance;
+        ImGui.SetNextItemWidth(220f);
+        if (ImGui.SliderInt("Item levels you will give up", ref tolerance, 0, 200))
+        {
+            configuration.ArmoryConsolidateIlvlTolerance = tolerance;
+            configuration.Save();
+        }
+
+        ImGui.TextWrapped("Lets a weaker piece that more classes can wear call a class-specific " +
+                          "piece junk, as long as it is no more than that many item levels worse. " +
+                          "This deliberately marks best-in-slot gear as junk, so it is off by " +
+                          "default. At 0 it does nothing; wide open it will strip you back to " +
+                          "whatever shared gear you own, however old. Run \"/cratools armorydump\" " +
+                          "to see what each setting would flag before you trust it.");
+
+        ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 

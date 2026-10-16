@@ -1,3 +1,5 @@
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -25,9 +27,15 @@ public sealed unsafe class ArmoryDebug
     private readonly ArmoryScanner scanner;
     private readonly GearsetIndex gearsets;
     private readonly JobUnlockState jobs;
+    private readonly ArmoryAnalyzer analyzer;
+    private readonly Configuration configuration;
+
+    /// <summary>How many individual junk rows the verdict section prints before it stops.</summary>
+    private const int SampleRows = 40;
 
     public ArmoryDebug(IGameGui gameGui, IPluginLog log, EquipRules rules, ArmoryScanner scanner,
-                       GearsetIndex gearsets, JobUnlockState jobs)
+                       GearsetIndex gearsets, JobUnlockState jobs, ArmoryAnalyzer analyzer,
+                       Configuration configuration)
     {
         this.gameGui = gameGui;
         this.log = log;
@@ -35,6 +43,8 @@ public sealed unsafe class ArmoryDebug
         this.scanner = scanner;
         this.gearsets = gearsets;
         this.jobs = jobs;
+        this.analyzer = analyzer;
+        this.configuration = configuration;
     }
 
     public void Dump()
@@ -42,6 +52,7 @@ public sealed unsafe class ArmoryDebug
         DumpContainers();
         DumpGearsets();
         DumpJobs();
+        DumpVerdicts();
         DumpSorters();
         DumpBoard();
     }
@@ -107,7 +118,177 @@ public sealed unsafe class ArmoryDebug
                 target.Append(' ').Append(jobs.LevelOf(rowId));
         }
 
-        log.Information($"=== Cratools armory: jobs ===\n  unlocked: {unlocked}\n  locked: {locked}");
+        // Which rows the supersede rule will actually speak for. A base class whose job is unlocked
+        // and a job the player never took both drop out here, and getting that wrong is invisible in
+        // the verdicts — it just looks like gear is never superseded.
+        var played = new StringBuilder();
+        var ignored = new StringBuilder();
+        foreach (var (rowId, abbreviation) in rules.Jobs)
+        {
+            if (!jobs.IsUnlocked(rowId))
+                continue;
+
+            var target = jobs.IsPlayed(rowId) ? played : ignored;
+            if (target.Length > 0)
+                target.Append(", ");
+            target.Append(abbreviation);
+            if (jobs.HasSoulCrystal(rowId))
+                target.Append(" [crystal]");
+        }
+
+        var crystals = jobs.SoulCrystalsKnown ? "read" : "UNREADABLE, filtering off";
+        log.Information($"=== Cratools armory: jobs ===\n  unlocked: {unlocked}\n  locked: {locked}" +
+                        $"\n  soul crystals: {crystals}\n  played: {played}\n  not played: {ignored}");
+    }
+
+    /// <summary>
+    /// What the classifier actually decided, which nothing else logs — the tab renders it but
+    /// leaves no record. Prints the verdict and keep-reason histograms, a per-container split, and
+    /// a counterfactual run with gearset protection removed.
+    ///
+    /// That last part is the point of the section. Gearset membership is an unconditional keep
+    /// (<see cref="ArmoryAnalyzer"/> checks it before either junk rule), so on a character with
+    /// many saved sets the junk list can be near-empty while most of the armoury is in fact
+    /// outdated. The counterfactual measures how much of the list the gearsets are hiding, and so
+    /// how much a prune is worth, without touching a single gearset to find out.
+    /// </summary>
+    private void DumpVerdicts()
+    {
+        var scanned = scanner.Scan();
+        var report = analyzer.Analyze(scanned);
+
+        log.Information($"=== Cratools armory: verdicts === scanned={scanned.Count}, " +
+                        $"judged={report.Verdicts.Count}, junk={report.JunkCount}, " +
+                        $"protected={report.ProtectedCount}, playerState={report.PlayerStateLoaded}");
+
+        log.Information($"  by kind: lockedJob={report.LockedJobCount}, " +
+                        $"superseded={report.SupersededCount}, duplicate={report.DuplicateCount}, " +
+                        $"keep={report.Verdicts.Count - report.JunkCount}");
+
+        var reasons = report.Verdicts
+                            .Where(v => !v.IsJunk)
+                            .GroupBy(v => v.Keep)
+                            .OrderByDescending(g => g.Count());
+        var reasonLine = new StringBuilder();
+        foreach (var group in reasons)
+        {
+            if (reasonLine.Length > 0)
+                reasonLine.Append(", ");
+            reasonLine.Append(group.Key).Append('=').Append(group.Count());
+        }
+
+        log.Information($"  keep reasons: {(reasonLine.Length > 0 ? reasonLine.ToString() : "none")}");
+
+        // Per container, because the pain is never spread evenly: the five armour containers cap
+        // at 35 and everything else has room.
+        foreach (var group in report.Verdicts.GroupBy(v => v.Item.Container)
+                                    .OrderBy(g => g.Key.ToString()))
+        {
+            var junk = group.Count(v => v.IsJunk);
+            var gearset = group.Count(v => !v.IsJunk && v.Keep == KeepReason.Gearset);
+            log.Information($"  {group.Key,-18} judged={group.Count(),3} junk={junk,3} " +
+                            $"gearsetKept={gearset,3}");
+        }
+
+        DumpGearsetCounterfactual(scanned, report);
+        DumpConsolidationSweep(scanned);
+
+        var shown = 0;
+        foreach (var verdict in report.Verdicts.Where(v => v.IsJunk))
+        {
+            if (shown++ >= SampleRows)
+                break;
+
+            log.Information($"  {verdict.Kind,-16} {verdict.Facts.Name} " +
+                            $"[{verdict.Item.Container}:{verdict.Item.Slot}] " +
+                            $"(i{verdict.Facts.ItemLevel}, lv{verdict.Facts.LevelEquip}) " +
+                            $"{verdict.Explanation}");
+        }
+
+        if (report.JunkCount > SampleRows)
+            log.Information($"  ... {report.JunkCount - SampleRows} more junk row(s) not listed.");
+    }
+
+    /// <summary>
+    /// Prices the consolidation option (<see cref="Configuration.ArmoryConsolidateShared"/>) across
+    /// a range of tolerances without changing the player's settings.
+    ///
+    /// The tolerance is the whole decision: it is how many item levels of stats you will give up to
+    /// get a slot back. At 0 the rule is inert; wide open it will happily replace a full set of
+    /// current role gear with one level 1 all-classes piece. Printing the curve is the only honest
+    /// way to pick a number, since the answer depends entirely on which shared gear you happen to
+    /// own.
+    /// </summary>
+    private void DumpConsolidationSweep(IReadOnlyList<ArmoryItem> scanned)
+    {
+        log.Information($"  --- if broader-class gear could supersede (tolerance sweep, " +
+                        $"current setting: shared={configuration.ArmoryConsolidateShared}, " +
+                        $"tolerance={configuration.ArmoryConsolidateIlvlTolerance}) ---");
+
+        // Deltas are against the strict rule, never against the live setting: once the option is
+        // on, comparing to it prints negative "gains" for every tolerance below the one in use.
+        var baseline = Probe(shared: false, 0).JunkCount;
+
+        foreach (var tolerance in new[] { 0, 15, 30, 60, 120, 999 })
+        {
+            var report = Probe(shared: true, tolerance);
+
+            // Only the five capped armour containers matter; the rest have headroom.
+            var capped = report.Verdicts.Count(v => v.IsJunk && IsCappedArmour(v.Item.Container));
+
+            log.Information($"  tolerance {tolerance,3}: junk={report.JunkCount,3} " +
+                            $"(+{report.JunkCount - baseline,3} over strict), " +
+                            $"of which in full armour containers={capped,3}");
+        }
+
+        ArmoryReport Probe(bool shared, int tolerance)
+        {
+            var probe = new Configuration
+            {
+                ArmoryKeepList = configuration.ArmoryKeepList,
+                ArmoryProtectCustomised = configuration.ArmoryProtectCustomised,
+                ArmoryProtectUnique = configuration.ArmoryProtectUnique,
+                ArmoryIgnoreJobsBelowLevel = configuration.ArmoryIgnoreJobsBelowLevel,
+                ArmoryConsolidateShared = shared,
+                ArmoryConsolidateIlvlTolerance = tolerance,
+            };
+
+            return new ArmoryAnalyzer(rules, jobs, gearsets, probe).Analyze(scanned);
+        }
+    }
+
+    /// <summary>The five containers that sit at 35/35 and are the only ones worth freeing.</summary>
+    private static bool IsCappedArmour(InventoryType container) => container is InventoryType.ArmoryHead
+        or InventoryType.ArmoryBody or InventoryType.ArmoryHands or InventoryType.ArmoryLegs
+        or InventoryType.ArmoryFeets;
+
+    /// <summary>
+    /// Re-runs the classifier against an empty <see cref="GearsetIndex"/> — never refreshed, so
+    /// every lookup misses and no item is gearset-protected. Everything else is held identical,
+    /// so the difference is attributable to the gearsets alone.
+    /// </summary>
+    private void DumpGearsetCounterfactual(IReadOnlyList<ArmoryItem> scanned, ArmoryReport actual)
+    {
+        var withoutGearsets = new ArmoryAnalyzer(rules, jobs, new GearsetIndex(), configuration);
+        var report = withoutGearsets.Analyze(scanned);
+
+        log.Information($"  --- if gearsets did not protect ({gearsets.GearsetCount} sets, " +
+                        $"{gearsets.ItemCount} ids) ---");
+        log.Information($"  junk would be {report.JunkCount} " +
+                        $"(+{report.JunkCount - actual.JunkCount}): " +
+                        $"lockedJob={report.LockedJobCount}, superseded={report.SupersededCount}, " +
+                        $"duplicate={report.DuplicateCount}");
+
+        // Which containers a prune would actually free, one line each, biggest win first.
+        var freed = report.Verdicts
+                          .Where(v => v.IsJunk)
+                          .Select(v => (v.Item.Container, v.Item.Slot))
+                          .Except(actual.JunkSlots)
+                          .GroupBy(slot => slot.Container)
+                          .OrderByDescending(g => g.Count());
+
+        foreach (var group in freed)
+            log.Information($"  would free in {group.Key}: {group.Count()}");
     }
 
     private void DumpSorters()
