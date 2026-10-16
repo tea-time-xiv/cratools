@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace Cratools.Armory;
@@ -259,9 +259,21 @@ public sealed class ArmoryAnalyzer
                 weakestUpgrade = upgrade;
         }
 
-        var better = weakestUpgrade!.Value;
+        // No relevant job asked the question at all — a class whose job is unlocked drops out, and
+        // so does a job the player never took. Keeping is the safe answer, but it is not a finding,
+        // so it must not read like one: sharing "Nothing better owned." hid a bug that dropped
+        // every non-specialist crafter here.
+        if (weakestUpgrade == null)
+            return Kept(item, facts, KeepReason.NoBetterOwned, "No job you play was checked; kept to be safe.");
+
+        var better = weakestUpgrade.Value;
+        var explanation = better.ItemLevel < facts.ItemLevel
+            ? $"Covered by {better.Name}, which more classes can wear " +
+              $"(i{better.ItemLevel} vs i{facts.ItemLevel}, a downgrade you allowed)."
+            : $"Superseded by {better.Name} (i{better.ItemLevel} vs i{facts.ItemLevel}).";
+
         return new ArmoryVerdict(item, facts, VerdictKind.JunkSuperseded, KeepReason.NoBetterOwned,
-                                 $"Superseded by {better.Name} (i{better.ItemLevel} vs i{facts.ItemLevel}).");
+                                 explanation);
     }
 
     /// <summary>
@@ -288,10 +300,11 @@ public sealed class ArmoryAnalyzer
             if (other.LevelEquip > jobLevel)
                 continue; // owned, but this job cannot wear it yet
 
-            if (other.ItemLevel <= facts.ItemLevel)
-                continue;
+            // The strict rule: a real upgrade, same role, no stat loss. A shared replacement is
+            // judged separately because it is allowed to be worse.
+            var isUpgrade = other.ItemLevel > facts.ItemLevel && SameRole(facts, other);
 
-            if (!SameRole(facts, other))
+            if (!isUpgrade && !IsSharedReplacement(facts, other))
                 continue;
 
             if (!found || other.ItemLevel < upgrade.ItemLevel)
@@ -302,6 +315,40 @@ public sealed class ArmoryAnalyzer
         }
 
         return found;
+    }
+
+    /// <summary>
+    /// The consolidation rule, off unless <see cref="Configuration.ArmoryConsolidateShared"/> is
+    /// set: one piece that more classes can wear is worth more slots than several narrow ones, so
+    /// it may supersede a stronger piece as long as the stat loss stays inside the configured
+    /// tolerance.
+    ///
+    /// The candidate's job mask has to be a strict superset of the item's. A merely different mask
+    /// is not enough — that would let a Fending body kill a Healing body of the same breadth,
+    /// leaving the job it replaced with nothing to wear.
+    /// </summary>
+    private bool IsSharedReplacement(ItemFacts facts, ItemFacts candidate)
+    {
+        if (!configuration.ArmoryConsolidateShared)
+            return false;
+
+        // Strict superset: covers every class the piece did, and at least one more.
+        if ((facts.JobMask & ~candidate.JobMask) != 0 || candidate.JobMask == facts.JobMask)
+            return false;
+
+        // Breadth is not interchangeability. An Aiming choker is worn by more jobs than a Fending
+        // one, so the superset test passes and the tank ends up in DEX gear. A piece that declares
+        // a main attribute may only be replaced by one with the same profile.
+        //
+        // Gear with no main attribute of its own is exempt: it belongs to no role, so there is
+        // nothing to preserve, and it is exactly the generic gear this rule exists to consolidate.
+        if (facts.MainStatMask != 0 && facts.MainStatMask != candidate.MainStatMask)
+            return false;
+
+        // Signed, because the tolerance can exceed the item level of the low-level gear this rule
+        // exists to clear out.
+        var floor = (long)facts.ItemLevel - System.Math.Max(0, configuration.ArmoryConsolidateIlvlTolerance);
+        return candidate.ItemLevel >= floor;
     }
 
     /// <summary>

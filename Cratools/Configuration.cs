@@ -37,6 +37,16 @@ public class Configuration : IPluginConfiguration
     // Item ids the player marked as keep-forever.
     public HashSet<uint> ArmoryKeepList { get; set; } = new();
 
+    // Trade stats for slots: let a piece that more classes can wear supersede a narrower one even
+    // though it is weaker. Off by default because it deliberately calls your best-in-slot gear
+    // junk; see ArmoryConsolidateIlvlTolerance for how much of a downgrade it will accept.
+    public bool ArmoryConsolidateShared { get; set; } = false;
+
+    // How many item levels the shared replacement may fall below the piece it supersedes. 0 makes
+    // the option a no-op (a broader piece must also be no worse); large values will strip you back
+    // to whatever single all-classes piece you happen to own.
+    public int ArmoryConsolidateIlvlTolerance { get; set; } = 30;
+
     // --- Glamour collection ---
 
     // Master toggle for the "not collected yet" marking.
