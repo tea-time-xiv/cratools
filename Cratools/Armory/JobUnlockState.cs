@@ -201,7 +201,7 @@ public sealed unsafe class JobUnlockState
         {
             var crystal = rules.SoulCrystalOf(rowId);
             if (crystal == 0)
-                continue; // a base class, or a job the sheet gives no crystal
+                continue; // only class-derived jobs carry a crystal to prove
 
             if (drawer.Contains(crystal) || inventory->GetInventoryItemCount(crystal) > 0)
                 unlockedJobs.Add(rowId);

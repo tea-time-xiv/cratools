@@ -47,7 +47,8 @@ public sealed class EquipRules
     // Base class RowId -> the jobs it becomes. Arcanist has two (Summoner and Scholar), so a list.
     private readonly Dictionary<uint, List<uint>> classToJobs = new();
 
-    // Job RowId -> the soul crystal that proves the job is unlocked. Classes have none.
+    // Class-derived job RowId -> the soul crystal that proves the job is unlocked. Classes, and jobs
+    // with no base class, have none here.
     private readonly Dictionary<uint, uint> jobSoulCrystal = new();
 
     public EquipRules(IDataManager dataManager, IPluginLog log)
@@ -90,11 +91,14 @@ public sealed class EquipRules
                     classToJobs[parent] = derived = new List<uint>();
 
                 derived.Add(job.RowId);
-            }
 
-            var soulCrystal = job.ItemSoulCrystal.RowId;
-            if (soulCrystal != 0)
-                jobSoulCrystal[job.RowId] = soulCrystal;
+                // Only a class-derived job needs its crystal as proof. Crafter rows point at the
+                // specialist "Soul of the …" items, which say nothing about whether the class is
+                // played; recording those drops every non-specialist crafter from the supersede rule.
+                var soulCrystal = job.ItemSoulCrystal.RowId;
+                if (soulCrystal != 0)
+                    jobSoulCrystal[job.RowId] = soulCrystal;
+            }
         }
 
         var categoryJobMasks = BuildCategoryJobMasks(dataManager, log);
@@ -142,7 +146,9 @@ public sealed class EquipRules
     public IReadOnlyList<uint>? JobsOfClass(uint classJobRowId)
         => classToJobs.GetValueOrDefault(classJobRowId);
 
-    /// <summary>The soul crystal item that proves a job is unlocked, or 0 for a class.</summary>
+    /// <summary>
+    /// The soul crystal item that proves a class-derived job is unlocked, or 0 for anything else.
+    /// </summary>
     public uint SoulCrystalOf(uint classJobRowId) => jobSoulCrystal.GetValueOrDefault(classJobRowId, 0u);
 
     public static bool JobInMask(ulong mask, uint classJobRowId)

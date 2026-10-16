@@ -260,9 +260,11 @@ public sealed class ArmoryAnalyzer
         }
 
         // No relevant job asked the question at all — a class whose job is unlocked drops out, and
-        // so does a job the player never took. Keeping is the safe answer.
+        // so does a job the player never took. Keeping is the safe answer, but it is not a finding,
+        // so it must not read like one: sharing "Nothing better owned." hid a bug that dropped
+        // every non-specialist crafter here.
         if (weakestUpgrade == null)
-            return Kept(item, facts, KeepReason.NoBetterOwned, "Nothing better owned.");
+            return Kept(item, facts, KeepReason.NoBetterOwned, "No job you play was checked; kept to be safe.");
 
         var better = weakestUpgrade.Value;
         var explanation = better.ItemLevel < facts.ItemLevel
